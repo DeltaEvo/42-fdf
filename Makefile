@@ -11,7 +11,7 @@
 # **************************************************************************** #
 
 NAME=fdf
-CFLAGS=-Wall -Werror -Wextra -Iinclude -Ilibft/include
+CFLAGS=-I../minilibx -Iinclude -Ilibft/include -g
 CC=gcc
 
 include src.mk
@@ -24,7 +24,8 @@ $(OBJS): Makefile src.mk
 
 $(NAME): $(OBJS)
 	$(MAKE) -C libft libft.a
-	$(CC) -lmlx -framework OpenGL -framework AppKit -o $(NAME) $(OBJS) libft/libft.a
+	#$(CC) -lmlx -framework OpenGL -framework AppKit -o $(NAME) $(OBJS) libft/libft.a
+	$(CC) $(CFLAGS) -L../minilibx -o $(NAME) $(OBJS) libft/libft.a -lmlx $(shell pkg-config --libs x11) $(shell pkg-config --libs xext) -lm
 
 clean:
 	$(MAKE) -C libft clean

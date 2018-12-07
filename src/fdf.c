@@ -17,6 +17,9 @@
 #include <string.h>
 #include <math.h>
 #include "ft/io.h"
+#include "ft/mem.h"
+#include "ft/str.h"
+#include "get_next_line.h"
 
 typedef	struct	s_mat4_data {
 	float	m11;
@@ -69,6 +72,15 @@ t_mat4	mat4_translation(float x, float y, float z) {
 		1, 0, 0, x,
 		0, 1, 0, y,
 		0, 0, 1, z,
+		0, 0, 0, 1
+	}));
+}
+
+t_mat4	mat4_rotation_x(float angle) {
+	return ((t_mat4)((t_mat4_data) {
+		1, 0, 0, 0,
+		0, cos(angle), -sin(angle), 0,
+		0, sin(angle), cos(angle), 0,
 		0, 0, 0, 1
 	}));
 }
@@ -140,6 +152,9 @@ typedef	struct	s_fdf {
 	float		x;
 	float		y;
 	float		z;
+	int		*arr;
+	size_t		len;
+	size_t		width;
 }				t_fdf;
 
 #include <stdio.h>
@@ -148,22 +163,28 @@ void render(t_fdf *fdf)
 {
 	uint32_t	imageSize = 500;
 	t_mat4		scale;
+	t_mat4		rotation;
 	t_mat4		camera;
 
 	mlx_clear_window(fdf->mlx, fdf->win);
 	scale = mat4_scale(fdf->scale, fdf->scale, fdf->scale);
 	camera = mat4_translation(fdf->x, fdf->y, fdf->z);
-	for (size_t i = 0; i < numVertices; i++)
+	rotation = mat4_rotation_x(M_PI/2);
+	for (size_t i = 0; i < fdf->len; i++)
 	{
 		t_vec3 vec;
-		memcpy(vec.d, vertices[i], sizeof(vec.d));
+
+		vec.d[0] = i % fdf->width;
+		vec.d[1] = (float)fdf->arr[i] / (float)10;
+		vec.d[2] = i / fdf->width;
 		vec = mat4_mult_vec3(vec, scale);
+		vec = mat4_mult_vec3(vec, rotation);
 		vec = mat4_mult_vec3(vec, camera);
 		vec = mat4_mult_vec3(vec, fdf->projection);
-        uint32_t x = (uint32_t)((vec.d[0] + 1) * 0.5 * imageSize); 
-        uint32_t y = (uint32_t)((1 - (vec.d[1] + 1) * 0.5) * imageSize); 
+		uint32_t x = (uint32_t)((vec.d[0] + 1) * 0.5 * imageSize); 
+		uint32_t y = (uint32_t)((1 - (vec.d[1] + 1) * 0.5) * imageSize); 
 		if (x < imageSize && y < imageSize)
-			mlx_pixel_put(fdf->mlx, fdf->win, x, y, 0x0000FF);
+			mlx_pixel_put(fdf->mlx, fdf->win, x, y, (0x00FF00 * fdf->arr[i] * 10) + 0x0000FF);
 	}
 }
 
@@ -186,23 +207,89 @@ int	key_hook(int keycode, t_fdf *fdf)
 	return (0);
 }
 
+size_t	count_words(const char *s, char c)
+{
+	size_t	len;
+
+	len = !(*s == c);
+	while (*++s)
+		if (s[-1] == c && *s != c)
+			len++;
+	return (len);
+}
+
+#include <stdlib.h>
+
+int	*parse_file(const int fd, size_t *curr_size, size_t *size)
+{
+	char	*line;
+	char	*line_o;
+	size_t	i;
+	t_readable	rd;
+	int	*arr;
+
+	if (get_next_line(fd, &line) != 1)
+		return (NULL);
+	line_o = line;
+	*size = count_words(line, ' ');
+	arr = malloc(*size * sizeof(int));
+	i = 0;
+	while (i < *size)
+		arr[i++] = ft_atoip(&line);
+	free(line_o);
+	*curr_size = *size;
+	rd = init_readable(fill_fd, (void *)fd);
+	ft_memcpy(rd.buffer, get_next_line_buff(fd)->data, get_next_line_buff(fd)->len);
+	rd.len += get_next_line_buff(fd)->len;
+	while (42)
+	{
+		arr = ft_realloc(arr, *curr_size * sizeof(int), (*curr_size + *size) * sizeof(int));
+		i = 0;
+		while (i < *size)
+			arr[*curr_size + i++] = ft_atoi_rd(&rd);
+		if (rd.len == 0)
+			break;
+		if (io_peek(&rd) != '\n')
+		{
+			free(arr);
+			return (NULL);
+		}
+		else
+			rd.index++;
+		*curr_size += *size;
+	}
+	return (arr);
+}
+
+#include <fcntl.h>
 
 int	main(int argc, char *argv[])
 {
 	t_fdf		fdf;
 	uint32_t	imageSize = 500;
+	int		*arr;
 
-	(void)argc;
-	(void)argv;
+	if (argc >= 2)
+	{
+		if (!(fdf.arr = parse_file(open(argv[1], O_RDONLY), &fdf.len, &fdf.width)))
+		{
+			ft_putf("Error\n");
+			return (1);
+		}
+	}
 	fdf.mlx = mlx_init();
 	fdf.win = mlx_new_window(fdf.mlx, imageSize, imageSize, "Hello World");
 
-	fdf.projection = mat4_projection(120, 0.1, 100);
-	//fdf.projection = mat4_isometric();
-	fdf.x = 4;
-	fdf.y = -10;
-	fdf.z = -20;
-	fdf.scale = 1;
+	//fdf.projection = mat4_projection(120, 0.1, 100);
+	//fdf.x = -20;
+	//fdf.y = -10;
+	//fdf.z = -30;
+	//fdf.scale = 6;
+	fdf.projection = mat4_isometric();
+	fdf.x = 0;
+	fdf.y = 0;
+	fdf.z = 0;
+	fdf.scale = 4;
 
 	render(&fdf);
 

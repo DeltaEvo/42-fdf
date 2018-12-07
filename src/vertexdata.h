@@ -1,6 +1,6 @@
 
 const uint32_t numVertices = 2630;
-const float vertices[numVertices][3] = {
+const float vertices[2630][3] = {
     {  7.00000, 12.00000,  0.00000},
     {  6.88900, 12.00000,  1.27250}, 
     {  6.81470, 12.19440,  1.25880}, 
