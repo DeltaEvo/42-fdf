@@ -6,203 +6,126 @@
 /*   By: dde-jesu <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/12/06 14:18:46 by dde-jesu          #+#    #+#             */
-/*   Updated: 2018/12/06 16:34:28 by dde-jesu         ###   ########.fr       */
+/*   Updated: 2018/12/07 16:22:19 by dde-jesu         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <mlx.h>
+#include "ft/mlx.h"
 #include <stddef.h>
 #include <stdint.h>
-#include "vertexdata.h"
-#include <string.h>
 #include <math.h>
+#include <stdlib.h>
+#include <fcntl.h>
 #include "ft/io.h"
 #include "ft/mem.h"
 #include "ft/str.h"
+#include "ft/math.h"
 #include "get_next_line.h"
 
-typedef	struct	s_mat4_data {
-	float	m11;
-	float	m12;
-	float	m13;
-	float	m14;
-	float	m21;
-	float	m22;
-	float	m23;
-	float	m24;
-	float	m31;
-	float	m32;
-	float	m33;
-	float	m34;
-	float	m41;
-	float	m42;
-	float	m43;
-	float	m44;
-}				t_mat4_data;
-
-typedef	union	u_mat4 {
-	float		a[4][4];
-	t_mat4_data	d;
-}				t_mat4;
-
-typedef	struct	s_vec3 {
-	float	d[3];
-}				t_vec3;
-
-t_mat4	mat4_identity() {
-	return ((t_mat4)((t_mat4_data) {
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		0, 0, 0, 1
-	}));
-}
-
-t_mat4	mat4_scale(float scaleX, float scaleY, float scaleZ) {
-	return ((t_mat4)((t_mat4_data) {
-		scaleX, 0, 0, 0,
-		0, scaleY, 0, 0,
-		0, 0, scaleZ, 0,
-		0, 0, 0, 1
-	}));
-}
-
-t_mat4	mat4_translation(float x, float y, float z) {
-	return ((t_mat4)((t_mat4_data) {
-		1, 0, 0, x,
-		0, 1, 0, y,
-		0, 0, 1, z,
-		0, 0, 0, 1
-	}));
-}
-
-t_mat4	mat4_rotation_x(float angle) {
-	return ((t_mat4)((t_mat4_data) {
-		1, 0, 0, 0,
-		0, cos(angle), -sin(angle), 0,
-		0, sin(angle), cos(angle), 0,
-		0, 0, 0, 1
-	}));
-}
-
-t_vec3	mat4_mult_vec3(t_vec3 src, t_mat4 m)
-{
-	t_vec3	res;
-	float	x;
-	float	y;
-	float	z;
-	float	w;
-	uint8_t	i;
-
-	x = src.d[0];
-	y = src.d[1];
-	z = src.d[2];
-	w = x * m.a[3][0] + y * m.a[3][1] + z * m.a[3][2] + m.a[3][3]; 
-	i = 0;
-	while (i < 3)
-	{
-		res.d[i] = (x * m.a[i][0] + y * m.a[i][1] + z * m.a[i][2] + m.a[i][3])/w; 
-		i++;
-	}
-	return (res);
-}
-
-t_mat4	mat4_projection(float fov, float near, float far)
-{
-	float	scale;
-	float 	z_map1;
-	float 	z_map2;
-   
-	scale = 1 / tan(fov * 0.5 * M_PI / 180); 
-	z_map1 = -far/(far - near);
-	z_map2 = -far * near/(far - near);
-
-	return ((t_mat4)(t_mat4_data) {
-		scale, 0    , 0    , 0,
-		0    , scale, 0, 0,
-		0    , 0    , z_map1, z_map2,
-		0    , 0    , -1 , 0
-	});
-}
-
-#define SQRT36 (0.70710678118)
-#define SQRT26 (0.57735026919)
-
-t_mat4	mat4_isometric()
-{
-	return ((t_mat4)(t_mat4_data) {
-		SQRT36, 0, 0, -SQRT36,
-		1     , 2, 1, 0,
-		SQRT26, -SQRT26, SQRT26, 0,
-		0    , 0    , -1 , 0
-	});
-}
-
-uint32_t	min(uint32_t u1, uint32_t u2)
-{
-	return (u1 > u2 ? u2 : u1);
-}
+#define WINDOW_SIZE (1000)
 
 typedef	struct	s_fdf {
 	void		*mlx;
 	void		*win;
-	t_mat4		projection;
-	t_mat4		camera;
-	float		scale;
-	float		x;
-	float		y;
-	float		z;
-	int		*arr;
+	t_mat4		mat;
+	int			*arr;
 	size_t		len;
 	size_t		width;
+	size_t		window_size;
 }				t_fdf;
 
-#include <stdio.h>
+void	draw_line(t_fdf *fdf, int32_t x, int32_t y, int32_t xTo, int32_t yTo, int color)
+{
+	int32_t	xInc;
+	int32_t	yInc;
+	int32_t	dx;
+	int32_t	dy;
+	int32_t	err;
+	int32_t	e2;
+
+	xInc = x < xTo ? 1 : -1;
+	yInc = y < yTo ? 1 : -1;
+	dx = xTo > x ? xTo - x : x - xTo;
+	dy = yTo > y ? yTo - y : y - yTo; 
+	err = dx > dy ? dx/2 : -dy/2;
+	while (x != xTo || y != yTo)
+	{
+		mlx_pixel_put(fdf->mlx, fdf->win, x, y, color);
+		e2 = err;
+		if (e2 >-dx)
+		{
+			err -= dy;
+			x += xInc;
+		}
+		if (e2 < dy)
+		{
+			err += dx;
+			y += yInc;
+		}
+	}
+}
 
 void render(t_fdf *fdf)
 {
-	uint32_t	imageSize = 500;
-	t_mat4		scale;
-	t_mat4		rotation;
-	t_mat4		camera;
+	float	factor;
+	float	yfactor;
+	int32_t	oldx;
+	int32_t	oldy;
 
+	factor = fdf->width;
+	yfactor = 10 * factor;
 	mlx_clear_window(fdf->mlx, fdf->win);
-	scale = mat4_scale(fdf->scale, fdf->scale, fdf->scale);
-	camera = mat4_translation(fdf->x, fdf->y, fdf->z);
-	rotation = mat4_rotation_x(M_PI/2);
+	oldx = -1;
+	oldy = -1;
 	for (size_t i = 0; i < fdf->len; i++)
 	{
 		t_vec3 vec;
 
-		vec.d[0] = i % fdf->width;
-		vec.d[1] = (float)fdf->arr[i] / (float)10;
-		vec.d[2] = i / fdf->width;
-		vec = mat4_mult_vec3(vec, scale);
-		vec = mat4_mult_vec3(vec, rotation);
-		vec = mat4_mult_vec3(vec, camera);
-		vec = mat4_mult_vec3(vec, fdf->projection);
-		uint32_t x = (uint32_t)((vec.d[0] + 1) * 0.5 * imageSize); 
-		uint32_t y = (uint32_t)((1 - (vec.d[1] + 1) * 0.5) * imageSize); 
-		if (x < imageSize && y < imageSize)
-			mlx_pixel_put(fdf->mlx, fdf->win, x, y, (0x00FF00 * fdf->arr[i] * 10) + 0x0000FF);
+		vec.d.x = (i % fdf->width)/factor - 0.5;
+		vec.d.y = (i / fdf->width)/factor - 0.5;
+		vec.d.z = fdf->arr[i] / yfactor - 0.5;
+		vec = mat4_mult_vec3(fdf->mat, vec);
+		int32_t x = (int32_t)(vec.d.x * WINDOW_SIZE); 
+		int32_t y = (int32_t)(vec.d.y * WINDOW_SIZE); 
+		if (i % fdf->width)
+			draw_line(fdf, oldx, oldy, x, y, 0x00FF00 * fdf->arr[i + fdf->width] * 10 + 0x0000FF);
+		if (i < fdf->len - fdf->width)
+		{
+			vec.d.x = (i % fdf->width)/factor - 0.5;
+			vec.d.y = ((i / fdf->width) + 1)/factor - 0.5;
+			vec.d.z = fdf->arr[i + fdf->width] / yfactor - 0.5;
+			vec = mat4_mult_vec3(fdf->mat, vec);
+			int32_t x2 = (int32_t)(vec.d.x * WINDOW_SIZE); 
+			int32_t y2 = (int32_t)(vec.d.y * WINDOW_SIZE); 
+			draw_line(fdf, x, y, x2, y2, 0x00FF00 * fdf->arr[i + fdf->width] * 10 + 0x0000FF);
+		}
+		oldx = x;
+		oldy = y;
 	}
 }
 
 int	key_hook(int keycode, t_fdf *fdf)
 {
-	ft_putf("Key: %d\n", keycode);
-	if (keycode == 69)
-		fdf->scale += 0.1;
-	if (keycode == 78)
-		fdf->scale -= 0.1;
-	if (keycode == 123)
-		fdf->x -= 1;
-	if (keycode == 124)
-		fdf->x += 1;
-	if (keycode == 125)
-		fdf->y -= 1;
-	if (keycode == 126)
-		fdf->y += 1;
+	if (keycode == X_KEY_NUM_1)
+		fdf->mat = mat4_mult(fdf->mat, mat4_rotate_x(M_PI/8));
+	else if (keycode == X_KEY_NUM_2)
+		fdf->mat = mat4_mult(fdf->mat, mat4_rotate_y(M_PI/8));
+	else if (keycode == X_KEY_NUM_3)
+		fdf->mat = mat4_mult(fdf->mat, mat4_rotate_z(M_PI/8));
+	else if (keycode == X_KEY_PLUS)
+		fdf->mat = mat4_mult(fdf->mat, mat4_scale(1.1, 1.1, 1.1));
+	else if (keycode == X_KEY_MINUS)
+		fdf->mat = mat4_mult(fdf->mat, mat4_scale(0.9, 0.9, 0.9));
+	else if (keycode == X_KEY_LEFT)
+		fdf->mat = mat4_mult(mat4_translate(-0.1, 0, 0), fdf->mat);
+	else if (keycode == X_KEY_RIGHT)
+		fdf->mat = mat4_mult(mat4_translate(0.1, 0, 0), fdf->mat);
+	else if (keycode == X_KEY_DOWN)
+		fdf->mat = mat4_mult(mat4_translate(0, 0.1, 0), fdf->mat);
+	else if (keycode == X_KEY_UP)
+		fdf->mat = mat4_mult(mat4_translate(0, -0.1, 0), fdf->mat);
+	else if (keycode == X_KEY_ESC)
+		exit(0);
 	render(fdf);
 	return (0);
 }
@@ -238,7 +161,7 @@ int	*parse_file(const int fd, size_t *curr_size, size_t *size)
 		arr[i++] = ft_atoip(&line);
 	free(line_o);
 	*curr_size = *size;
-	rd = init_readable(fill_fd, (void *)fd);
+	rd = init_readable(fill_fd, (void *)(uintptr_t)fd);
 	ft_memcpy(rd.buffer, get_next_line_buff(fd)->data, get_next_line_buff(fd)->len);
 	rd.len += get_next_line_buff(fd)->len;
 	while (42)
@@ -249,25 +172,21 @@ int	*parse_file(const int fd, size_t *curr_size, size_t *size)
 			arr[*curr_size + i++] = ft_atoi_rd(&rd);
 		if (rd.len == 0)
 			break;
-		if (io_peek(&rd) != '\n')
+		/*if (io_peek(&rd) != '\n')
 		{
 			free(arr);
 			return (NULL);
 		}
-		else
+		else*/
 			rd.index++;
 		*curr_size += *size;
 	}
 	return (arr);
 }
 
-#include <fcntl.h>
-
 int	main(int argc, char *argv[])
 {
 	t_fdf		fdf;
-	uint32_t	imageSize = 500;
-	int		*arr;
 
 	if (argc >= 2)
 	{
@@ -278,21 +197,11 @@ int	main(int argc, char *argv[])
 		}
 	}
 	fdf.mlx = mlx_init();
-	fdf.win = mlx_new_window(fdf.mlx, imageSize, imageSize, "Hello World");
-
-	//fdf.projection = mat4_projection(120, 0.1, 100);
-	//fdf.x = -20;
-	//fdf.y = -10;
-	//fdf.z = -30;
-	//fdf.scale = 6;
-	fdf.projection = mat4_isometric();
-	fdf.x = 0;
-	fdf.y = 0;
-	fdf.z = 0;
-	fdf.scale = 4;
-
+	fdf.win = mlx_new_window(fdf.mlx, WINDOW_SIZE, WINDOW_SIZE, "FdF");
+	fdf.mat = mat4_translate(0.5, 0.5, 0.5);
+	fdf.mat = mat4_mult(fdf.mat, mat4_rotate_x(M_PI/4));
+	fdf.mat = mat4_mult(fdf.mat, mat4_scale(0.8, 0.8, 0.8));
 	render(&fdf);
-
-	mlx_hook(fdf.win, 2, 1, key_hook, &fdf);
+	mlx_hook(fdf.win, X_KEYPRESS, X_KEYPRESSMASK, key_hook, &fdf);
 	mlx_loop(fdf.mlx);
 }
