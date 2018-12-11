@@ -32,88 +32,86 @@ typedef	struct	s_fdf {
 	size_t		len;
 	size_t		width;
 	size_t		window_size;
+	uint32_t	max_height;
+	float		yscale;
 }				t_fdf;
 
-int	gradient(int colorFrom, int colorTo, double percent)
+typedef struct s_pixel {
+	int32_t		x;
+	int32_t		y;
+	int32_t		color;
+}			t_pixel;
+
+int	gradient(int32_t colorFrom, int32_t colorTo, double percent)
 {
-	return (((colorFrom >> 16) + (int)(percent * ((colorTo >> 16) - (colorFrom >> 16)))) << 16
-			| (((colorFrom >> 8) & 0xFF) + (int)(percent * (((colorTo >> 8) & 0xFF) - ((colorFrom >> 8) & 0xFF)))) << 8
-			| (((colorFrom) & 0xFF) + (int)(percent * (((colorTo) & 0xFF) - ((colorFrom) & 0xFF))))
+	return (((colorFrom >> 16) + (int)(percent * ((colorTo >> 16)
+				- (colorFrom >> 16)))) << 16
+			| (((colorFrom >> 8) & 0xFF) + (int)(percent *
+				(((colorTo >> 8) & 0xFF) - ((colorFrom >> 8) & 0xFF)))) << 8
+			| (((colorFrom) & 0xFF) + (int)(percent * (((colorTo) & 0xFF)
+				- ((colorFrom) & 0xFF))))
 			);
 }
 
-void	draw_line(t_fdf *fdf, int32_t x, int32_t y, int32_t xTo, int32_t yTo, int color, int colorTo)
+void	draw_line(t_fdf *fdf, t_pixel from, t_pixel to)
 {
 	int32_t	xInc;
 	int32_t	yInc;
 	int32_t	dx;
 	int32_t	dy;
-	int32_t	err;
-	int32_t	e2;
+	int32_t	e[2];
 
-	xInc = x < xTo ? 1 : -1;
-	yInc = y < yTo ? 1 : -1;
-	dx = xTo > x ? xTo - x : x - xTo;
-	dy = yTo > y ? yTo - y : y - yTo; 
-	err = dx > dy ? dx/2 : -dy/2;
-	while (x != xTo || y != yTo)
+	xInc = from.x < to.x ? 1 : -1;
+	yInc = from.y < to.y ? 1 : -1;
+	dx = to.x > from.x ? to.x - from.x : from.x - to.x;
+	dy = to.y > from.y ? to.y - from.y : from.y - to.y;
+	e[0] = dx > dy ? dx/2 : -dy/2;
+	while (from.x != to.x || from.y != to.y)
 	{
-		mlx_pixel_put(fdf->mlx, fdf->win, x, y, gradient(color, colorTo, 1 - (dx > dy ? (xTo-x) * xInc/(double)dx : (yTo-y) * yInc/(double)dy)));
-		e2 = err;
-		if (e2 >-dx)
+		mlx_pixel_put(fdf->mlx, fdf->win, from.x, from.y,
+			gradient(from.color, to.color, 1 - (dx > dy ? (to.x-from.x)
+			* xInc/(double)dx : (to.y-from.y) * yInc/(double)dy)));
+		if ((e[1] = e[0]) >-dx)
 		{
-			err -= dy;
-			x += xInc;
+			e[0] -= dy;
+			from.x += xInc;
 		}
-		if (e2 < dy)
+		if (e[1] < dy)
 		{
-			err += dx;
-			y += yInc;
+			e[0] += dx;
+			from.y += yInc;
 		}
 	}
 }
 
-#define MAX_HEIGHT (50.0)
+#define F_COLOR (0x0000FF)
+#define T_COLOR (0xFF0000)
 
 void render(t_fdf *fdf)
 {
-	float	factor;
-	float	yfactor;
-	int32_t	oldx;
-	int32_t	oldy;
-	int32_t	oldcolor;
+	const float	f = fdf->width;
+	const float	yf = fdf->max_height / fdf->yscale;
+	t_pixel	old;
+	t_pixel	curr;
+	int32_t	i;
+	t_vec3 vec;
 
-	factor = fdf->width;
-	yfactor = MAX_HEIGHT * factor;
 	mlx_clear_window(fdf->mlx, fdf->win);
-	oldx = -1;
-	oldy = -1;
-	oldcolor = -1;
-	for (size_t i = 0; i < fdf->len; i++)
+	i = -1;
+	while (++i < fdf->len)
 	{
-		t_vec3 vec;
-
-		vec.d.x = (i % fdf->width)/factor - 0.5;
-		vec.d.y = (i / fdf->width)/factor - 0.5;
-		vec.d.z = fdf->arr[i] / yfactor - 0.5;
-		vec = mat4_mult_vec3(fdf->mat, vec);
-		int32_t x = (int32_t)(vec.d.x * WINDOW_SIZE); 
-		int32_t y = (int32_t)(vec.d.y * WINDOW_SIZE); 
-		printf("Color %f, %#x\n", fdf->arr[i] / MAX_HEIGHT, gradient(0x0000FF, 0xFF0000, fdf->arr[i] / MAX_HEIGHT));
+		vec = mat4_mult_vec3(fdf->mat, (t_vec3)(t_vec3_data){ (i % fdf->width)/f - 0.5, (i / fdf->width)/f - 0.5, fdf->arr[i] / yf - 0.5 });
+		curr = (t_pixel) { vec.d.x * WINDOW_SIZE, vec.d.y * WINDOW_SIZE,
+			gradient(F_COLOR, T_COLOR, fdf->arr[i] / (float)fdf->max_height) };
 		if (i % fdf->width)
-			draw_line(fdf, oldx, oldy, x, y, oldcolor, gradient(0x0000FF, 0xFF0000, fdf->arr[i] / MAX_HEIGHT));
-		oldcolor = gradient(0x0000FF, 0xFF0000, fdf->arr[i] / MAX_HEIGHT);
-		oldx = x;
-		oldy = y;
+			draw_line(fdf, old, curr);
+		old = curr;
 		if (i < fdf->len - fdf->width)
 		{
-			vec.d.x = (i % fdf->width)/factor - 0.5;
-			vec.d.y = ((i / fdf->width) + 1)/factor - 0.5;
-			vec.d.z = fdf->arr[i + fdf->width] / yfactor - 0.5;
-			vec = mat4_mult_vec3(fdf->mat, vec);
-			int32_t x2 = (int32_t)(vec.d.x * WINDOW_SIZE); 
-			int32_t y2 = (int32_t)(vec.d.y * WINDOW_SIZE); 
-			draw_line(fdf, x, y, x2, y2, oldcolor, gradient(0x0000FF, 0xFF0000, fdf->arr[i + fdf->width] / MAX_HEIGHT));
+			vec = mat4_mult_vec3(fdf->mat, (t_vec3)(t_vec3_data) { (i % fdf->width)/f - 0.5,
+				((i / fdf->width) + 1)/f - 0.5, fdf->arr[i + fdf->width] / yf - 0.5 });
+			draw_line(fdf, old, curr = (t_pixel) { vec.d.x * WINDOW_SIZE, vec.d.y * WINDOW_SIZE,
+				gradient(F_COLOR, T_COLOR, fdf->arr[i + fdf->width] / (float)fdf->max_height) });
 		}
 	}
 }
@@ -134,10 +132,14 @@ int	key_hook(int keycode, t_fdf *fdf)
 		fdf->mat = mat4_mult(mat4_translate(-0.1, 0, 0), fdf->mat);
 	else if (keycode == X_KEY_RIGHT)
 		fdf->mat = mat4_mult(mat4_translate(0.1, 0, 0), fdf->mat);
-	else if (keycode == X_KEY_DOWN)
-		fdf->mat = mat4_mult(mat4_translate(0, 0.1, 0), fdf->mat);
 	else if (keycode == X_KEY_UP)
+		fdf->mat = mat4_mult(mat4_translate(0, 0.1, 0), fdf->mat);
+	else if (keycode == X_KEY_DOWN)
 		fdf->mat = mat4_mult(mat4_translate(0, -0.1, 0), fdf->mat);
+	else if (keycode == X_KEY_A)
+		fdf->yscale -= 0.3;
+	else if (keycode == X_KEY_S)
+		fdf->yscale += 0.3;
 	else if (keycode == X_KEY_ESC)
 		exit(0);
 	render(fdf);
@@ -155,9 +157,12 @@ size_t	count_words(const char *s, char c)
 	return (len);
 }
 
-#include <stdlib.h>
+uint32_t ft_abs(int32_t a)
+{
+	return (a > 0 ? a : -a);
+}
 
-int	*parse_file(const int fd, size_t *curr_size, size_t *size)
+int	*parse_file(const int fd, size_t *curr_size, size_t *size, uint32_t *max_height)
 {
 	char	*line;
 	char	*line_o;
@@ -172,7 +177,11 @@ int	*parse_file(const int fd, size_t *curr_size, size_t *size)
 	arr = malloc(*size * sizeof(int));
 	i = 0;
 	while (i < *size)
+	{
 		arr[i++] = ft_atoip(&line);
+		if (ft_abs(arr[i - 1]) > *max_height)
+			*max_height = ft_abs(arr[i - 1]);
+	}
 	free(line_o);
 	*curr_size = *size;
 	rd = init_readable(fill_fd, (void *)(uintptr_t)fd);
@@ -183,7 +192,11 @@ int	*parse_file(const int fd, size_t *curr_size, size_t *size)
 		arr = ft_realloc(arr, *curr_size * sizeof(int), (*curr_size + *size) * sizeof(int));
 		i = 0;
 		while (i < *size)
+		{
 			arr[*curr_size + i++] = ft_atoi_rd(&rd);
+			if (ft_abs(arr[*curr_size + i - 1]) > *max_height)
+				*max_height = ft_abs(arr[*curr_size + i - 1]);
+		}
 		if (rd.len == 0)
 			break;
 		/*if (io_peek(&rd) != '\n')
@@ -202,13 +215,12 @@ int	main(int argc, char *argv[])
 {
 	t_fdf		fdf;
 
-	if (argc >= 2)
+	fdf.max_height = 0;
+	fdf.yscale = 1;
+	if (argc != 2 || !(fdf.arr = parse_file(open(argv[1], O_RDONLY), &fdf.len, &fdf.width, &fdf.max_height)))
 	{
-		if (!(fdf.arr = parse_file(open(argv[1], O_RDONLY), &fdf.len, &fdf.width)))
-		{
-			ft_putf("Error\n");
-			return (1);
-		}
+		ft_putf("Error\n");
+		return (1);
 	}
 	fdf.mlx = mlx_init();
 	fdf.win = mlx_new_window(fdf.mlx, WINDOW_SIZE, WINDOW_SIZE, "FdF");
