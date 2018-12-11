@@ -6,7 +6,7 @@
 /*   By: dde-jesu <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/12/06 14:18:46 by dde-jesu          #+#    #+#             */
-/*   Updated: 2018/12/07 16:22:19 by dde-jesu         ###   ########.fr       */
+/*   Updated: 2018/12/11 17:23:31 by dde-jesu         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -34,7 +34,15 @@ typedef	struct	s_fdf {
 	size_t		window_size;
 }				t_fdf;
 
-void	draw_line(t_fdf *fdf, int32_t x, int32_t y, int32_t xTo, int32_t yTo, int color)
+int	gradient(int colorFrom, int colorTo, double percent)
+{
+	return (((colorFrom >> 16) + (int)(percent * ((colorTo >> 16) - (colorFrom >> 16)))) << 16
+			| (((colorFrom >> 8) & 0xFF) + (int)(percent * (((colorTo >> 8) & 0xFF) - ((colorFrom >> 8) & 0xFF)))) << 8
+			| (((colorFrom) & 0xFF) + (int)(percent * (((colorTo) & 0xFF) - ((colorFrom) & 0xFF))))
+			);
+}
+
+void	draw_line(t_fdf *fdf, int32_t x, int32_t y, int32_t xTo, int32_t yTo, int color, int colorTo)
 {
 	int32_t	xInc;
 	int32_t	yInc;
@@ -50,7 +58,7 @@ void	draw_line(t_fdf *fdf, int32_t x, int32_t y, int32_t xTo, int32_t yTo, int c
 	err = dx > dy ? dx/2 : -dy/2;
 	while (x != xTo || y != yTo)
 	{
-		mlx_pixel_put(fdf->mlx, fdf->win, x, y, color);
+		mlx_pixel_put(fdf->mlx, fdf->win, x, y, gradient(color, colorTo, 1 - (dx > dy ? (xTo-x) * xInc/(double)dx : (yTo-y) * yInc/(double)dy)));
 		e2 = err;
 		if (e2 >-dx)
 		{
@@ -65,18 +73,22 @@ void	draw_line(t_fdf *fdf, int32_t x, int32_t y, int32_t xTo, int32_t yTo, int c
 	}
 }
 
+#define MAX_HEIGHT (50.0)
+
 void render(t_fdf *fdf)
 {
 	float	factor;
 	float	yfactor;
 	int32_t	oldx;
 	int32_t	oldy;
+	int32_t	oldcolor;
 
 	factor = fdf->width;
-	yfactor = 10 * factor;
+	yfactor = MAX_HEIGHT * factor;
 	mlx_clear_window(fdf->mlx, fdf->win);
 	oldx = -1;
 	oldy = -1;
+	oldcolor = -1;
 	for (size_t i = 0; i < fdf->len; i++)
 	{
 		t_vec3 vec;
@@ -87,8 +99,12 @@ void render(t_fdf *fdf)
 		vec = mat4_mult_vec3(fdf->mat, vec);
 		int32_t x = (int32_t)(vec.d.x * WINDOW_SIZE); 
 		int32_t y = (int32_t)(vec.d.y * WINDOW_SIZE); 
+		printf("Color %f, %#x\n", fdf->arr[i] / MAX_HEIGHT, gradient(0x0000FF, 0xFF0000, fdf->arr[i] / MAX_HEIGHT));
 		if (i % fdf->width)
-			draw_line(fdf, oldx, oldy, x, y, 0x00FF00 * fdf->arr[i + fdf->width] * 10 + 0x0000FF);
+			draw_line(fdf, oldx, oldy, x, y, oldcolor, gradient(0x0000FF, 0xFF0000, fdf->arr[i] / MAX_HEIGHT));
+		oldcolor = gradient(0x0000FF, 0xFF0000, fdf->arr[i] / MAX_HEIGHT);
+		oldx = x;
+		oldy = y;
 		if (i < fdf->len - fdf->width)
 		{
 			vec.d.x = (i % fdf->width)/factor - 0.5;
@@ -97,10 +113,8 @@ void render(t_fdf *fdf)
 			vec = mat4_mult_vec3(fdf->mat, vec);
 			int32_t x2 = (int32_t)(vec.d.x * WINDOW_SIZE); 
 			int32_t y2 = (int32_t)(vec.d.y * WINDOW_SIZE); 
-			draw_line(fdf, x, y, x2, y2, 0x00FF00 * fdf->arr[i + fdf->width] * 10 + 0x0000FF);
+			draw_line(fdf, x, y, x2, y2, oldcolor, gradient(0x0000FF, 0xFF0000, fdf->arr[i + fdf->width] / MAX_HEIGHT));
 		}
-		oldx = x;
-		oldy = y;
 	}
 }
 
