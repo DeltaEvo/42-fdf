@@ -123,7 +123,7 @@ int		main(int argc, char *argv[])
 {
 	t_fdf		fdf;
 
-	fdf.max_height = 0;
+	fdf.max_height = 1;
 	fdf.yscale = 1;
 	if (argc != 2 || !(fdf.arr = parse_file(open(argv[1], O_RDONLY), &fdf.len,
 					&fdf.width, &fdf.max_height)))
