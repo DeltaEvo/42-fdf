@@ -19,6 +19,7 @@
 #include <math.h>
 #include <fcntl.h>
 #include "ft/math.h"
+#include "ft/mem.h"
 
 int		gradient(int32_t color_from, int32_t color_to, double percent)
 {
@@ -41,9 +42,10 @@ int		draw_line(t_fdf *fdf, t_pixel from, t_pixel to)
 	e[0] = dx > dy ? dx / 2 : -dy / 2;
 	while (from.x != to.x || from.y != to.y)
 	{
-		mlx_pixel_put(fdf->mlx, fdf->win, from.x, from.y,
-		gradient(from.color, to.color, 1 - (dx > dy ? (to.x - from.x)
-		* x_inc / (double)dx : (to.y - from.y) * y_inc / (double)dy)));
+		if (from.y >= 0 && from.y < W_SIZE && from.x >= 0 && from.x < W_SIZE)
+		fdf->img[from.y * W_SIZE + from.x] = gradient(from.color, to.color,
+		1 - (dx > dy ? (to.x - from.x) * x_inc / (double)dx : (to.y - from.y)
+			* y_inc / (double)dy));
 		if ((e[1] = e[0]) > -dx)
 		{
 			e[0] -= dy;
@@ -58,7 +60,7 @@ int		draw_line(t_fdf *fdf, t_pixel from, t_pixel to)
 	return (0);
 }
 
-void	render(t_fdf *fdf)
+int		render(t_fdf *fdf)
 {
 	const float	f = fdf->width;
 	const float	yf = fdf->max_height / fdf->yscale;
@@ -66,12 +68,12 @@ void	render(t_fdf *fdf)
 	t_pixel		p[2];
 	t_vec3		vec;
 
-	mlx_clear_window(fdf->mlx + (i = 0), fdf->win);
+	ft_memset(fdf->img, 0, W_SIZE * W_SIZE * 4);
 	while (i < fdf->len)
 	{
 		vec = mat4_mult_vec3(fdf->mat, (t_vec3)(t_vec3_data) { (i % fdf->width)
 			/ f - 0.5, (i / fdf->width) / f - 0.5, fdf->arr[i] / yf - 0.5 });
-		p[0] = (t_pixel) { vec.d.x * WINDOW_SIZE, vec.d.y * WINDOW_SIZE,
+		p[0] = (t_pixel) { vec.d.x * W_SIZE, vec.d.y * W_SIZE,
 			gradient(F_COLOR, T_COLOR, fdf->arr[i] / (float)fdf->max_height) };
 		((i % fdf->width ? draw_line(fdf, p[1], p[0]) : 0) || (p[1] = p[0]).x);
 		if (i < fdf->len - fdf->width)
@@ -79,40 +81,42 @@ void	render(t_fdf *fdf)
 			vec = mat4_mult_vec3(fdf->mat, (t_vec3)(t_vec3_data) { (i
 				% fdf->width) / f - 0.5, ((i / fdf->width) + 1) / f - 0.5,
 					fdf->arr[i + fdf->width] / yf - 0.5 });
-			draw_line(fdf, p[1], p[0] = (t_pixel) { vec.d.x * WINDOW_SIZE,
-				vec.d.y * WINDOW_SIZE, gradient(F_COLOR, T_COLOR,
+			draw_line(fdf, p[1], p[0] = (t_pixel) { vec.d.x * W_SIZE,
+				vec.d.y * W_SIZE, gradient(F_COLOR, T_COLOR,
 						fdf->arr[i + fdf->width] / (float)fdf->max_height) });
 		}
 		i++;
 	}
+	return (mlx_put_image_to_window(fdf->mlx, fdf->win, fdf->ximg, 0, 0));
 }
 
-int		key_hook(int keycode, t_fdf *fdf)
+int		key_hook(int key, t_fdf *fdf)
 {
-	if (keycode == X_KEY_NUM_1)
+	if (key == X_KEY_NUM_1)
 		fdf->mat = mat4_mult(fdf->mat, mat4_rotate_x(M_PI / 8));
-	else if (keycode == X_KEY_NUM_2)
+	else if (key == X_KEY_NUM_2)
 		fdf->mat = mat4_mult(fdf->mat, mat4_rotate_y(M_PI / 8));
-	else if (keycode == X_KEY_NUM_3)
+	else if (key == X_KEY_NUM_3)
 		fdf->mat = mat4_mult(fdf->mat, mat4_rotate_z(M_PI / 8));
-	else if (keycode == X_KEY_PLUS)
+	else if (key == X_KEY_PLUS)
 		fdf->mat = mat4_mult(fdf->mat, mat4_scale(1.1, 1.1, 1.1));
-	else if (keycode == X_KEY_MINUS)
+	else if (key == X_KEY_MINUS)
 		fdf->mat = mat4_mult(fdf->mat, mat4_scale(0.9, 0.9, 0.9));
-	else if (keycode == X_KEY_LEFT)
-		fdf->mat = mat4_mult(mat4_translate(-0.1, 0, 0), fdf->mat);
-	else if (keycode == X_KEY_RIGHT)
-		fdf->mat = mat4_mult(mat4_translate(0.1, 0, 0), fdf->mat);
-	else if (keycode == X_KEY_UP)
-		fdf->mat = mat4_mult(mat4_translate(0, 0.1, 0), fdf->mat);
-	else if (keycode == X_KEY_DOWN)
-		fdf->mat = mat4_mult(mat4_translate(0, -0.1, 0), fdf->mat);
-	else if (keycode == X_KEY_A || keycode == X_KEY_S)
-		fdf->yscale -= keycode == X_KEY_A ? 0.3 : -0.3;
-	else if (keycode == X_KEY_ESC)
-		exit(mlx_destroy_window(fdf->mlx, fdf->win) & 0);
-	render(fdf);
-	return (0);
+	else if (key == X_KEY_LEFT || key == X_KEY_RIGHT)
+		fdf->mat = mat4_mult(mat4_translate(key == X_KEY_LEFT ? -0.1 : 0.1, 0, 0),
+				fdf->mat);
+	else if (key == X_KEY_UP || key == X_KEY_DOWN)
+		fdf->mat = mat4_mult(mat4_translate(0, key == X_KEY_UP ? 0.1 : -0.1, 0),
+				fdf->mat);
+	else if (key == X_KEY_A || key == X_KEY_S)
+		fdf->yscale -= key == X_KEY_A ? 0.3 : -0.3;
+	else if (key == X_KEY_ESC)
+	{
+		free(fdf->arr);
+		exit((mlx_destroy_window(fdf->mlx, fdf->win)
+				+ mlx_destroy_image(fdf->mlx, fdf->ximg)) & 0);
+	}
+	return (render(fdf));
 }
 
 int		main(int argc, char *argv[])
@@ -128,15 +132,17 @@ int		main(int argc, char *argv[])
 		return (1);
 	}
 	fdf.mlx = mlx_init();
-	if (!(fdf.win = mlx_new_window(fdf.mlx, WINDOW_SIZE, WINDOW_SIZE, "FdF")))
+	if (!(fdf.win = mlx_new_window(fdf.mlx, W_SIZE, W_SIZE, "FdF")))
 	{
 		write(2, "Failed to create window\n", 24);
 		return (1);
 	}
+	fdf.ximg = mlx_new_image(fdf.mlx, W_SIZE, W_SIZE);
+	fdf.img = (int *)mlx_get_data_addr(fdf.ximg, &argc, &argc, &argc);
 	fdf.mat = mat4_translate(0.5, 0.5, 0.5);
 	fdf.mat = mat4_mult(fdf.mat, mat4_rotate_x(M_PI / 4));
 	fdf.mat = mat4_mult(fdf.mat, mat4_scale(0.8, 0.8, 0.8));
 	mlx_hook(fdf.win, X_KEYPRESS, X_KEYPRESSMASK, key_hook, &fdf);
-	mlx_expose_hook(fdf.win, (int (*)(t_fdf *))render, &fdf);
+	mlx_expose_hook(fdf.win, render, &fdf);
 	mlx_loop(fdf.mlx);
 }

@@ -16,15 +16,17 @@
 # include "ft/math.h"
 # include <stdint.h>
 # include <stddef.h>
-# define WINDOW_SIZE (1000)
+# define W_SIZE (1000)
 # define F_COLOR (0x0000FF)
 # define T_COLOR (0xFF0000)
 
 typedef	struct	s_fdf {
 	void		*mlx;
 	void		*win;
+	void		*ximg;
+	int			*img;
 	t_mat4		mat;
-	int			*arr;
+	int32_t		*arr;
 	size_t		len;
 	size_t		width;
 	size_t		window_size;

@@ -11,9 +11,7 @@
 /* ************************************************************************** */
 
 #include "get_next_line.h"
-#include "ft/io.h"
 #include "ft/mem.h"
-#include "ft/str.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -29,57 +27,65 @@ static size_t	count_words(const char *s, char c)
 	return (len);
 }
 
+static int32_t	ft_atoip(char **str)
+{
+	char		*o;
+	int32_t	result;
+	char		mod;
+
+	o = *str;
+	while (**str == ' ' || (**str >= '\t' && **str <= '\r'))
+		(*str)++;
+	result = 0;
+	mod = **str == '-' || **str == '+' ? *(*str)++ == '-' : 0;
+	if (**str >= '0' && **str <= '9')
+		while (**str >= '0' && **str <= '9')
+			result = result * 10 + *(*str)++ - '0';
+	else
+	{
+		*str = o;
+		return (0);
+	}
+	return (mod ? -result : result);
+}
+
 static uint32_t	ft_abs(int32_t a)
 {
 	return (a > 0 ? a : -a);
 }
 
-int				*parse_file(const int fd, size_t *curr_size, size_t *size,
+static void	*free_ret(void *addr)
+{
+	free(addr);
+	return (NULL);
+}
+
+int32_t			*parse_file(const int fd, size_t *curr_size, size_t *size,
 		uint32_t *max_height)
 {
-	char		*line;
-	char		*line_o;
-	size_t		i;
-	t_readable	rd;
-	int			*arr;
+	char		*line[2];
+	int32_t		i;
+	int32_t		*arr;
 
-	if (get_next_line(fd, &line) != 1)
-		return (NULL);
-	line_o = line;
-	*size = count_words(line, ' ');
-	arr = malloc(*size * sizeof(int));
-	i = 0;
-	while (i < *size)
+	*size = 0;
+	*curr_size = 0;
+	arr = NULL;
+	while (get_next_line(fd, line) > 0)
 	{
-		arr[i++] = ft_atoip(&line);
-		if (ft_abs(arr[i - 1]) > *max_height)
-			*max_height = ft_abs(arr[i - 1]);
-	}
-	free(line_o);
-	*curr_size = *size;
-	rd = init_readable(fill_fd, (void *)(uintptr_t)fd);
-	ft_memcpy(rd.buffer, get_next_line_buff(fd)->data, get_next_line_buff(fd)->len);
-	rd.len += get_next_line_buff(fd)->len;
-	while (42)
-	{
-		arr = ft_realloc(arr, *curr_size * sizeof(int), (*curr_size + *size) * sizeof(int));
-		i = 0;
-		while (i < *size)
-		{
-			arr[*curr_size + i++] = ft_atoi_rd(&rd);
-			if (ft_abs(arr[*curr_size + i - 1]) > *max_height)
-				*max_height = ft_abs(arr[*curr_size + i - 1]);
-		}
-		if (rd.len == 0)
-			break;
-		/*if (io_peek(&rd) != '\n')
-		{
-			free(arr);
-			return (NULL);
-		}
-		else*/
-			rd.index++;
+		if (!*size)
+			*size = count_words(*line, ' ');
+		line[1] = line[0];
+		arr = ft_realloc(arr, *curr_size * 4, (*curr_size + *size) * 4);
+		i = -1;
+		while (++i < *size)
+			if (!**line)
+				return (free_ret(arr));
+			else if (ft_abs(arr[*curr_size + i] = ft_atoip(line)) > *max_height)
+				*max_height = ft_abs(arr[*curr_size + i]);
+		if (**line)
+			return (free_ret(arr));
 		*curr_size += *size;
+		free(line[1]);
 	}
 	return (arr);
 }
