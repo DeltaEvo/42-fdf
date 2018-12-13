@@ -6,7 +6,7 @@
 /*   By: dde-jesu <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/12/06 14:18:46 by dde-jesu          #+#    #+#             */
-/*   Updated: 2018/12/12 09:39:05 by dde-jesu         ###   ########.fr       */
+/*   Updated: 2018/12/13 09:41:04 by dde-jesu         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,7 +43,7 @@ int		draw_line(t_fdf *fdf, t_pixel from, t_pixel to)
 	while (from.x != to.x || from.y != to.y)
 	{
 		if (from.y >= 0 && from.y < W_SIZE && from.x >= 0 && from.x < W_SIZE)
-		fdf->img[from.y * W_SIZE + from.x] = gradient(from.color, to.color,
+			fdf->img[from.y * W_SIZE + from.x] = gradient(from.color, to.color,
 		1 - (dx > dy ? (to.x - from.x) * x_inc / (double)dx : (to.y - from.y)
 			* y_inc / (double)dy));
 		if ((e[1] = e[0]) > -dx)
@@ -64,19 +64,19 @@ int		render(t_fdf *fdf)
 {
 	const float	f = fdf->width;
 	const float	yf = fdf->max_height / fdf->yscale;
-	uint32_t	i;
+	int32_t		i;
 	t_pixel		p[2];
 	t_vec3		vec;
 
-	ft_memset(fdf->img, 0, W_SIZE * W_SIZE * 4);
-	while (i < fdf->len)
+	ft_memset(fdf->img, (i = -1) & 0, W_SIZE * W_SIZE * 4);
+	while ((uint32_t)(++i) < fdf->len)
 	{
 		vec = mat4_mult_vec3(fdf->mat, (t_vec3)(t_vec3_data) { (i % fdf->width)
 			/ f - 0.5, (i / fdf->width) / f - 0.5, fdf->arr[i] / yf - 0.5 });
 		p[0] = (t_pixel) { vec.d.x * W_SIZE, vec.d.y * W_SIZE,
 			gradient(F_COLOR, T_COLOR, fdf->arr[i] / (float)fdf->max_height) };
 		((i % fdf->width ? draw_line(fdf, p[1], p[0]) : 0) || (p[1] = p[0]).x);
-		if (i < fdf->len - fdf->width)
+		if ((uint32_t)i < fdf->len - fdf->width)
 		{
 			vec = mat4_mult_vec3(fdf->mat, (t_vec3)(t_vec3_data) { (i
 				% fdf->width) / f - 0.5, ((i / fdf->width) + 1) / f - 0.5,
@@ -85,7 +85,6 @@ int		render(t_fdf *fdf)
 				vec.d.y * W_SIZE, gradient(F_COLOR, T_COLOR,
 						fdf->arr[i + fdf->width] / (float)fdf->max_height) });
 		}
-		i++;
 	}
 	return (mlx_put_image_to_window(fdf->mlx, fdf->win, fdf->ximg, 0, 0));
 }
@@ -103,8 +102,8 @@ int		key_hook(int key, t_fdf *fdf)
 	else if (key == X_KEY_MINUS)
 		fdf->mat = mat4_mult(fdf->mat, mat4_scale(0.9, 0.9, 0.9));
 	else if (key == X_KEY_LEFT || key == X_KEY_RIGHT)
-		fdf->mat = mat4_mult(mat4_translate(key == X_KEY_LEFT ? -0.1 : 0.1, 0, 0),
-				fdf->mat);
+		fdf->mat = mat4_mult(mat4_translate(key == X_KEY_LEFT ? -0.1 : 0.1, 0,
+					0), fdf->mat);
 	else if (key == X_KEY_UP || key == X_KEY_DOWN)
 		fdf->mat = mat4_mult(mat4_translate(0, key == X_KEY_UP ? 0.1 : -0.1, 0),
 				fdf->mat);

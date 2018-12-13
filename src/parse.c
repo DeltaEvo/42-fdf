@@ -6,7 +6,7 @@
 /*   By: dde-jesu <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/12/12 09:12:12 by dde-jesu          #+#    #+#             */
-/*   Updated: 2018/12/12 09:16:09 by dde-jesu         ###   ########.fr       */
+/*   Updated: 2018/12/13 09:37:47 by dde-jesu         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,7 +30,7 @@ static size_t	count_words(const char *s, char c)
 static int32_t	ft_atoip(char **str)
 {
 	char		*o;
-	int32_t	result;
+	int32_t		result;
 	char		mod;
 
 	o = *str;
@@ -54,7 +54,7 @@ static uint32_t	ft_abs(int32_t a)
 	return (a > 0 ? a : -a);
 }
 
-static void	*free_ret(void *addr)
+static void		*free_ret(void *addr)
 {
 	free(addr);
 	return (NULL);
@@ -77,7 +77,7 @@ int32_t			*parse_file(const int fd, size_t *curr_size, size_t *size,
 		line[1] = line[0];
 		arr = ft_realloc(arr, *curr_size * 4, (*curr_size + *size) * 4);
 		i = -1;
-		while (++i < *size)
+		while ((uint32_t)++i < *size)
 			if (!**line)
 				return (free_ret(arr));
 			else if (ft_abs(arr[*curr_size + i] = ft_atoip(line)) > *max_height)

@@ -6,7 +6,7 @@
 /*   By: dde-jesu <marvin@42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/11/13 16:09:12 by dde-jesu          #+#    #+#             */
-/*   Updated: 2018/11/21 10:23:31 by dde-jesu         ###   ########.fr       */
+/*   Updated: 2018/12/13 09:39:23 by dde-jesu         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,7 +31,7 @@ static	int	read_next_buff(const int fd, char **line, int len)
 	char			*res;
 
 	res = buff;
-	if ((r = read(fd, buff, BUFF_SIZE)) < 0)
+	if (len > 1000000 || (r = read(fd, buff, BUFF_SIZE)) < 0)
 		return (-1);
 	else if (r == 0 && len == 0)
 		return (0);
