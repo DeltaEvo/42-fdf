@@ -6,12 +6,12 @@
 #    By: dde-jesu <marvin@42.fr>                    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2018/11/06 16:01:17 by dde-jesu          #+#    #+#              #
-#    Updated: 2018/12/07 16:14:34 by dde-jesu         ###   ########.fr        #
+#    Updated: 2018/12/13 09:48:18 by dde-jesu         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 NAME=fdf
-CFLAGS=-Wall -Werror -Wextra -Iinclude -Ilibft/include -g
+CFLAGS=-Wall -Werror -Wextra -Iinclude -Ilibft/include
 CC=gcc
 
 include src.mk
